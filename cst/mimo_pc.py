@@ -108,7 +108,6 @@ for ax, (sname, F, c_var, c_phys, xyz, ph0, cutphi, sector, k, th, ph) in zip(ax
     ax.set_xlim(-span, span); ax.set_ylim(-180, 180); ax.grid(alpha=0.3)
     ax.set_title(sname + NL + f"найдено по CST: ({xyz[0]:.1f}; {xyz[1]:.1f}) мм, сечение φ = {cutphi:g}°", fontsize=9)
     ax.set_xlabel("θ, °"); ax.set_ylabel("фаза отклика, °"); ax.legend(fontsize=7, loc="lower right")
-fig.suptitle(f"{tag}: фаза суммарного отклика MIMO-решётки в главном лепестке (точки) и её предсказание из двух точек "
-             f"(серым — амплитуда лепестка), 10 ГГц", fontsize=10)
+fig.suptitle(f"{tag}, 10 ГГц: фаза отклика MIMO-решётки (точки) и два кандидата на фазовый центр; серым — амплитуда лепестка", fontsize=10)
 fig.tight_layout(); fig.savefig(os.path.join(OUT, f"{tag}_mimo_pc.png"), dpi=170); plt.close(fig)
 print("fig", os.path.join(OUT, f"{tag}_mimo_pc.png"))

@@ -1,2 +1,8 @@
 __pycache__/
 *.pyc
+# CST: сырые экспорты ДН (~5 МБ каждый) и рабочие папки проектов не храним
+cst/*/ff_*.txt
+cst/*/_ff_tmp.txt
+cst/*/mimo_*/
+cst/*/build.log
+cst/*/export.log

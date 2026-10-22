@@ -100,12 +100,16 @@ def initial_guess(th, ph, u, E, w, k):
     return x[:3]
 
 
-def fit_phase_center(theta_deg, phi_deg, E, k, sector_deg=30.0, center=(0.0, 0.0)):
+def fit_phase_center(theta_deg, phi_deg, E, k, sector_deg=30.0, center=(0.0, 0.0), fix_z=False,
+                     with_phase=False):
     """МНК по фазе в секторе радиусом sector_deg вокруг center=(θc, φc).
 
     Начальное приближение — по развёрнутой вдоль θ фазе (initial_guess), затем
     итерационное уточнение линейным МНК по свёрнутому в (-π, π] остатку.
-    Возвращает (xyz в метрах, rms остатка фазы в градусах).
+    fix_z=True — искать только x, y (z = 0): в узком секторе вокруг нормали z не обусловлен
+    (чувствительность ∝ 1 − cosθ), а для плоской решётки нужны именно x, y.
+    Возвращает (xyz в метрах, rms остатка фазы в градусах); with_phase=True — ещё и φ0 в градусах
+    (фаза элемента в начале координат; разнофазность элементов смещает фазовый центр их суммы).
     """
     th, ph = np.asarray(theta_deg, float), np.asarray(phi_deg, float)
     E = np.asarray(E, complex)
@@ -121,6 +125,9 @@ def fit_phase_center(theta_deg, phi_deg, E, k, sector_deg=30.0, center=(0.0, 0.0
     w = np.abs(E[m]) ** 2
     x = np.zeros(4)
     x[:3] = initial_guess(th[m], ph[m], u[m], E[m], w, k)
+    if fix_z:
+        x[2] = 0.0
+        A[:, 2] = 0.0
     for _ in range(50):
         resid = np.angle(np.exp(1j * (phase - A @ x)))
         dx, *_ = np.linalg.lstsq(A * np.sqrt(w)[:, None], resid * np.sqrt(w), rcond=None)
@@ -129,6 +136,8 @@ def fit_phase_center(theta_deg, phi_deg, E, k, sector_deg=30.0, center=(0.0, 0.0
             break
     resid = np.angle(np.exp(1j * (phase - A @ x)))
     rms = np.degrees(np.sqrt(np.average(resid ** 2, weights=w)))
+    if with_phase:
+        return x[:3], rms, float(np.degrees(np.angle(np.exp(1j * x[3]))))
     return x[:3], rms
 
 

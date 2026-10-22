@@ -5,7 +5,7 @@ F_n(u)·F_k(u). Обработка по Чапурскому (24)–(25) с оп
     Ψ_cst(u) = |Σ_nk F_n(u)·F_k(u)·exp(−j·k·(r_n + r_k)·u0)| / max,
 то есть опорные фазы — геометрические (как в РЛС), а сигналы — из электродинамики. Для сравнения: Ψ по ф. (12)
 с изотропными элементами и та же формула × квадрат среднего множителя элемента.
-Виртуальные центры пар: МНК-подгонка фазы F_n·F_k моделью k·(r·u) в секторе ±30° вокруг u0, все три координаты.
+Виртуальные центры пар: МНК-подгонка фазы F_n·F_k моделью k·(r·u) в полосе углов места ±30° на всех азимутах, все три координаты.
 
   python cst/cone_compare.py [--f 10]
 Выход: cone/cone_compare.json/.md, fig2/cone_cuts.png, fig2/cone_vpc.png
@@ -45,7 +45,7 @@ for tn in tx:
     for rn in rx:
         rv = pos[tn] + pos[rn]
         F_cst += pats[tn] * pats[rn] * np.exp(-1j * k * rv @ u0)
-        F_geo += np.exp(1j * k * rv @ (u - u0))
+        F_geo += np.exp(1j * k * ((u - u0) @ rv))
 elem = np.mean([np.abs(pats[n]) for n in pos], axis=0)
 F_geo_el = F_geo * (elem / elem.max()) ** 2
 
@@ -57,8 +57,8 @@ def cut_az(F):
 
 
 def cut_el(F):
-    s1 = (ph == 0); s2 = (ph == 180)
-    el = np.concatenate([90 - th[s1], 90 - th[s2]]); v = np.concatenate([F[s1], F[s2]])
+    s1 = (ph == 0)                                   # вертикальная плоскость φ = 0: угол места = 90° − θ
+    el = 90 - th[s1]; v = F[s1]
     m = (el >= -89) & (el <= 89)
     o = np.argsort(el[m]); return el[m][o], np.abs(v[m])[o] / np.abs(F).max()
 
@@ -78,21 +78,24 @@ fig.tight_layout(); fig.savefig(os.path.join(OUT, "cone_cuts.png"), dpi=170); pl
 
 # --- виртуальные центры всех пар
 vrows = []
-for tn in tx:
-    for rn in rx:
+band = np.abs(th - 90) <= a.sector                   # полоса углов места ±sector на всех азимутах: x, y — из азимутальной
+for tn in tx:                                        # зависимости фазы, z — из угломестной (сектор-конус вокруг одного
+    for rn in rx:                                    # направления плохо определяет координату вдоль луча)
         rv = pos[tn] + pos[rn]
-        xyz, rms = fit_phase_center(th, ph, pats[tn] * pats[rn], k, a.sector, (90.0, 0.0))
+        xyz, rms = fit_phase_center(th[band], ph[band], (pats[tn] * pats[rn])[band], k, 180.0, (90.0, 0.0))
         vrows.append(dict(tx=tn, rx=rn, geom=list(map(float, rv)), cst=list(map(float, xyz)), dev=float(np.linalg.norm(xyz - rv)), rms=float(rms)))
 dev = np.array([r["dev"] for r in vrows]); dev_xyz = np.array([np.abs(np.array(r["cst"]) - np.array(r["geom"])) for r in vrows])
 summ = dict(n_pairs=len(vrows), dev_mean=float(dev.mean()), dev_p95=float(np.percentile(dev, 95)), dev_max=float(dev.max()),
             dev_xyz_max=list(map(float, dev_xyz.max(axis=0))), rms_mean=float(np.mean([r["rms"] for r in vrows])),
             n_over_lam20=int((dev > LAM / 20).sum()))
 g = np.array([r["geom"] for r in vrows]); c = np.array([r["cst"] for r in vrows])
-fig, ax = plt.subplots(1, 3, figsize=(14, 4.4))
+fig, ax = plt.subplots(1, 3, figsize=(14, 4.6), gridspec_kw={"width_ratios": [1.2, 1.2, 1]})
 for i, (p, q, lab) in enumerate(((0, 1, "вид сверху: x, y"), (0, 2, "вид сбоку: x, z"))):
     ax[i].plot(g[:, p], g[:, q], "^", mfc="none", mec="0.3", ms=8, label="r_tx + r_rx (Чапурский)")
     sc = ax[i].scatter(c[:, p], c[:, q], c=dev, cmap="viridis", s=12, zorder=3, vmin=0, vmax=max(1.5, dev.max()), label="по CST")
-    ax[i].set_aspect("equal"); ax[i].grid(alpha=0.3); ax[i].set_title(f"виртуальные центры {len(vrows)} пар, {lab}", fontsize=9)
+    ax[i].set_aspect("equal" if i == 0 else "auto"); ax[i].grid(alpha=0.3); ax[i].set_title(f"виртуальные центры {len(vrows)} пар, {lab}", fontsize=9)
+    if i == 1:
+        ax[i].set_ylim(-20, 240)
     ax[i].set_xlabel(["x", "y", "z"][p] + ", мм"); ax[i].set_ylabel(["x", "y", "z"][q] + ", мм"); ax[i].legend(fontsize=7)
 fig.colorbar(sc, ax=ax[:2], shrink=0.8, label="расхождение, мм")
 ax[2].hist(dev, bins=25, color="0.5"); ax[2].axvline(LAM / 20, color="r", ls="--"); ax[2].text(LAM / 20, ax[2].get_ylim()[1] * 0.9, " λ/20", color="r", fontsize=8)

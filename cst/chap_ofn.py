@@ -66,11 +66,14 @@ def metrics_cut(ang, psi):
     im = int(np.argmax(d)); lo = hi = im
     while lo > 0 and d[lo - 1] >= -3: lo -= 1
     while hi < len(d) - 1 and d[hi + 1] >= -3: hi += 1
+    # границы −3 дБ с линейной интерполяцией между соседними отсчётами
+    al = ang[lo] + (ang[lo - 1] - ang[lo]) * (-3 - d[lo]) / (d[lo - 1] - d[lo]) if lo > 0 and d[lo - 1] != d[lo] else ang[lo]
+    ar = ang[hi] + (ang[hi + 1] - ang[hi]) * (-3 - d[hi]) / (d[hi + 1] - d[hi]) if hi < len(d) - 1 and d[hi + 1] != d[hi] else ang[hi]
     l = r = im
     while l > 0 and d[l - 1] < d[l]: l -= 1
     while r < len(d) - 1 and d[r + 1] < d[r]: r += 1
     outside = np.concatenate([d[:l], d[r + 1:]])
-    return dict(hpbw=float(ang[hi] - ang[lo]), sll_db=float(outside.max()) if outside.size else float("nan"))
+    return dict(hpbw=float(ar - al), sll_db=float(outside.max()) if outside.size else float("nan"))
 
 
 if __name__ == "__main__":

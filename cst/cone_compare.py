@@ -113,3 +113,97 @@ txt = NL.join(lines).replace(".", ","); print(txt)
 open(os.path.join(folder, "cone_compare.md"), "w", encoding="utf-8").write(txt + NL)
 json.dump(dict(cuts={f"{n}|{l}": m_ for (n, l), m_ in rows.items()}, vpc=summ, pairs=vrows),
           open(os.path.join(folder, "cone_compare.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+
+
+# ================================================================ подробное соответствие Чапурский ↔ CST
+def cuts_metrics(F):
+    az, va = cut_az(F); m = (az >= -90) & (az <= 90); el, ve = cut_el(F); me = (el >= -60) & (el <= 60)
+    return dict(az=metrics_cut(az[m], va[m]), el=metrics_cut(el[me], ve[me]))
+
+
+def first_lobes(F, cutf, span):
+    x_, v = cutf(F); m = (x_ >= -span) & (x_ <= span); x_, v = x_[m], v[m]
+    dB = 20 * np.log10(v / v.max() + 1e-12); im = int(np.argmax(dB))
+    out = {}
+    for side, rng in (("left", range(im - 1, 0, -1)), ("right", range(im + 1, len(dB) - 1))):
+        passed_null = False
+        for i in rng:
+            if not passed_null and dB[i] < dB[i - (1 if side == "right" else -1)]:
+                continue
+            passed_null = True
+            if dB[i] >= dB[i - 1] and dB[i] >= dB[i + 1]:
+                out[side] = (float(x_[i]), float(dB[i])); break
+    return out
+
+
+detail = {"10.0": dict(formula=cuts_metrics(F_geo_el), cst=cuts_metrics(F_cst), iso=cuts_metrics(F_geo))}
+for f_ in (9.8, 10.2):
+    lam_ = C0 / (f_ * 1e9) * 1e3; k_ = 2 * np.pi / lam_
+    P_ = {n: read_cst_farfield(os.path.join(folder, f"ff_{n}_{f_:.1f}GHz.txt"), "theta")[2] for n in pos}
+    Fc = np.zeros(len(th), complex); Fg = np.zeros(len(th), complex)
+    for tn in tx:
+        for rn in rx:
+            rv = pos[tn] + pos[rn]
+            Fc += P_[tn] * P_[rn] * np.exp(-1j * k_ * rv @ u0); Fg += np.exp(1j * k_ * ((u - u0) @ rv))
+    el_ = np.mean([np.abs(P_[n]) for n in pos], axis=0); Fg *= (el_ / el_.max()) ** 2
+    detail[f"{f_}"] = dict(formula=cuts_metrics(Fg), cst=cuts_metrics(Fc))
+# первые боковые лепестки (10 ГГц)
+lobes = dict(formula=dict(az=first_lobes(F_geo_el, cut_az, 90), el=first_lobes(F_geo_el, cut_el, 60)),
+             cst=dict(az=first_lobes(F_cst, cut_az, 90), el=first_lobes(F_cst, cut_el, 60)))
+# среднеквадратичное расхождение кривых там, где формула выше −25 дБ
+rmsd = {}
+for name, cutf, span in (("az", cut_az, 90), ("el", cut_el, 60)):
+    x1, v1 = cutf(F_geo_el); x2, v2 = cutf(F_cst); m = (x1 >= -span) & (x1 <= span)
+    d1 = 20 * np.log10(v1[m] + 1e-12); d2 = 20 * np.log10(v2[m] + 1e-12); sel = d1 > -25
+    rmsd[name] = float(np.sqrt(np.mean((d2[sel] - d1[sel]) ** 2)))
+# фазовый центр всей системы: сумма откликов всех пар, полоса |el| ≤ 30°
+Fsum = np.zeros(len(th), complex); Fsum_cal = np.zeros(len(th), complex); Fsum_geo = np.zeros(len(th), complex)
+i0 = np.where((th == 90) & (ph == 0))[0][0]
+for tn in tx:
+    for rn in rx:
+        Fsum += pats[tn] * pats[rn]
+        Fsum_cal += (pats[tn] / pats[tn][i0]) * (pats[rn] / pats[rn][i0])          # калибровка каналов по опорному направлению
+        Fsum_geo += np.exp(1j * k * (u @ (pos[tn] + pos[rn])))                     # то же по формуле (изотропные)
+# у всей системы луч 3,6° × 7,4°: подгонка только внутри главного лепестка (сектор ±3° вокруг горизонта).
+# Координата вдоль луча (x) в узком секторе не определяется (чувствительность ∝ 1 − cos θ) и по симметрии равна 0;
+# ищутся поперечные y, z линейным МНК по фазе относительно центра лепестка (внутри лепестка фаза не переворачивается).
+ang = np.degrees(np.arccos(np.clip(u @ u0, -1, 1))); sel = ang <= 3.0
+
+
+def lobe_fit(F):
+    phase = np.angle(F[sel] * np.conj(F[i0])); w = np.abs(F[sel]) ** 2
+    A = np.column_stack([k * u[sel, 1], k * u[sel, 2], np.ones(sel.sum())])
+    sol, *_ = np.linalg.lstsq(A * np.sqrt(w)[:, None], phase * np.sqrt(w), rcond=None)
+    return np.array([0.0, sol[0], sol[1]]), float(np.degrees(np.sqrt(np.average((phase - A @ sol) ** 2, weights=w))))
+
+
+# Фазовый центр системы имеет смысл для СФОКУСИРОВАННОГО отклика (с опорными фазами exp(−jk r_v·u0), как в обработке
+# Чапурского): без них пары в направлении u0 не синфазны, и у суммы нет единого центра (Fsum — для справки).
+xyz_sys, rms_sys = lobe_fit(F_cst); xyz_cal, rms_cal = lobe_fit(Fsum_cal); xyz_geo, rms_geo = lobe_fit(F_geo)
+xyz_raw, rms_raw = lobe_fit(Fsum)
+c_var = np.mean([pos[n] for n in tx], axis=0) + np.mean([pos[n] for n in rx], axis=0)
+c_phys = np.mean([pos[n] for n in pos], axis=0)
+system = dict(cst=list(map(float, xyz_sys)), cst_cal=list(map(float, xyz_cal)), geo_fit=list(map(float, xyz_geo)),
+              var=list(map(float, c_var)), phys=list(map(float, c_phys)),
+              dev_var=float(np.linalg.norm(xyz_sys - c_var)), dev_var_cal=float(np.linalg.norm(xyz_cal - c_var)),
+              dev_phys=float(np.linalg.norm(xyz_sys - c_phys)), rms=float(rms_sys), rms_cal=float(rms_cal), rms_geo=float(rms_geo),
+              unfocused=list(map(float, xyz_raw)), rms_unfocused=float(rms_raw))
+# виртуальные центры на краях полосы
+vpc_band = {}
+for f_ in (9.8, 10.2):
+    lam_ = C0 / (f_ * 1e9) * 1e3; k_ = 2 * np.pi / lam_
+    P_ = {n: read_cst_farfield(os.path.join(folder, f"ff_{n}_{f_:.1f}GHz.txt"), "theta")[2] for n in pos}
+    dv = []
+    for tn in tx:
+        for rn in rx:
+            xyz_, _ = fit_phase_center(th[band], ph[band], (P_[tn] * P_[rn])[band], k_, 180.0, (90.0, 0.0))
+            dv.append(np.linalg.norm(xyz_ - (pos[tn] + pos[rn])))
+    dv = np.array(dv)
+    vpc_band[f"{f_}"] = dict(dev_mean=float(dv.mean()), dev_p95=float(np.percentile(dv, 95)), dev_max=float(dv.max()),
+                             n_over_lam20=int((dv > lam_ / 20).sum()))
+out = json.load(open(os.path.join(folder, "cone_compare.json"), encoding="utf-8"))
+out.update(detail=detail, lobes=lobes, rmsd=rmsd, system=system, vpc_band=vpc_band)
+json.dump(out, open(os.path.join(folder, "cone_compare.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+print("detail:", json.dumps(dict(system=system, rmsd=rmsd, lobes=lobes, vpc_band=vpc_band), ensure_ascii=False)[:900])
+for f_, dct in detail.items():
+    print(f_, "formula", dct["formula"], "cst", dct["cst"])

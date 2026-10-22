@@ -30,6 +30,10 @@ ap.add_argument("--freqs", type=float, nargs="*", default=[9.8, 10.0, 10.2])
 ap.add_argument("--component", default="copol",
                 help="theta | phi | copol (Ludwig-3 для диполя вдоль y: E_th·sinφ + E_ph·cosφ — без скачков знака)")
 a = ap.parse_args()
+_lay = os.path.join(a.folder, "layout_mm.txt")
+if os.path.exists(_lay):   # кольцо и любая другая раскладка: name x y
+    GEOM = {p[0]: np.array([float(p[1]), float(p[2]), 0.0])
+            for p in (l.split() for l in open(_lay, encoding="utf-8")) if p and p[0] != "name"}
 
 rows = []          # (freq, name, kind, expected[3], fitted[3], rms, dev)
 patterns = {}
@@ -83,8 +87,12 @@ for f in a.freqs:
         th, ph, E = load(name, f)
         add(f, name, "элемент", g, E, th, ph)
     # подрешётки (синфазная сумма) — ожидание: центр подрешётки (среднее координат)
-    subs = {"rxsum": [f"rx{i}" for i in range(1, 9)], "txsum": [f"tx{i}" for i in range(1, 5)],
-            "txL": ["tx1", "tx2"], "txR": ["tx3", "tx4"], "rxL4": ["rx1", "rx2", "rx3", "rx4"]}
+    rxn = sorted(n for n in GEOM if n.startswith("rx")); txn = sorted(n for n in GEOM if n.startswith("tx"))
+    if len(GEOM) == 12:
+        subs = {"rxsum": [f"rx{i}" for i in range(1, 9)], "txsum": [f"tx{i}" for i in range(1, 5)],
+                "txL": ["tx1", "tx2"], "txR": ["tx3", "tx4"], "rxL4": ["rx1", "rx2", "rx3", "rx4"]}
+    else:
+        subs = {"rxsum": rxn, "txsum": txn}
     sumpat = {}
     for sname, members in subs.items():
         th, ph, E = load(members[0], f)
@@ -96,8 +104,12 @@ for f in a.freqs:
         add(f, sname, "подрешётка", exp, E, th, ph, a.sector_sub)
     # произведения: пара, подрешётка×подрешётка — ожидание: сумма фазовых центров (Г1)
     fitted = {r[1]: r[4] for r in rows if r[0] == f}
-    prods = [("tx1*rx8", "tx1", "rx8"), ("tx4*rx1", "tx4", "rx1"), ("tx2*rx4", "tx2", "rx4"),
-             ("txsum*rxsum", "txsum", "rxsum"), ("txL*rxsum", "txL", "rxsum")]
+    if len(GEOM) == 12:
+        prods = [("tx1*rx8", "tx1", "rx8"), ("tx4*rx1", "tx4", "rx1"), ("tx2*rx4", "tx2", "rx4"),
+                 ("txsum*rxsum", "txsum", "rxsum"), ("txL*rxsum", "txL", "rxsum")]
+    else:
+        prods = [(f"{txn[0]}*{rxn[0]}", txn[0], rxn[0]), (f"{txn[0]}*{rxn[len(rxn)//2]}", txn[0], rxn[len(rxn)//2]),
+                 (f"{txn[len(txn)//2]}*{rxn[0]}", txn[len(txn)//2], rxn[0]), ("txsum*rxsum", "txsum", "rxsum")]
     for pname, p1, p2 in prods:
         th1, ph1, E1 = sumpat[p1] if p1 in sumpat else load(p1, f)
         th2, ph2, E2 = sumpat[p2] if p2 in sumpat else load(p2, f)
@@ -118,10 +130,12 @@ lam0 = 30.0
 summ = ["", "Максимальное отклонение по x, y по типам (λ/20 = 1,5 мм, λ/50 = 0,6 мм):"]
 for kind, d in worst.items():
     summ.append(f"- {kind}: {d:.2f} мм = λ/{lam0/d:.0f}" if d > 0 else f"- {kind}: 0")
-ph_lines = ["", "Фаза элементов φ0 относительно rx4 (°; разнофазность — калибровочная поправка ВАР):",
+ref_name = "rx4" if len(GEOM) == 12 else sorted(GEOM)[0]
+ph_lines = ["", f"Фаза элементов φ0 относительно {ref_name} (°; разнофазность — калибровочная поправка ВАР):",
             "| f, ГГц | " + " | ".join(GEOM) + " |", "|---|" + "---|" * len(GEOM)]
+ref_name = "rx4" if "rx4" in GEOM and len(GEOM) == 12 else sorted(GEOM)[0]
 for f in a.freqs:
-    ref = phases[(f, "rx4")]
+    ref = phases[(f, ref_name)]
     ph_lines.append(f"| {f:.1f} | " + " | ".join(
         f"{np.degrees(np.angle(np.exp(1j*np.radians(phases[(f, n)] - ref)))):.1f}" for n in GEOM) + " |")
 txt = "\n".join(lines + summ + ph_lines)

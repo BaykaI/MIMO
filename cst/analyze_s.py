@@ -12,7 +12,10 @@ ap = argparse.ArgumentParser()
 ap.add_argument("files", nargs="+")
 ap.add_argument("--f", type=float, default=10.0, help="частота отчёта, ГГц")
 a = ap.parse_args()
-NAMES = [f"Rx{i}" for i in range(1, 9)] + [f"Tx{i}" for i in range(1, 5)]
+def names_for(n):
+    """12 портов: 8 Rx + 4 Tx (линейная); 30 портов: 20 Rx + 10 Tx (кольцо)."""
+    nrx = {12: 8, 30: 20}.get(n, n)
+    return [f"Rx{i}" for i in range(1, nrx + 1)] + [f"Tx{i}" for i in range(1, n - nrx + 1)]
 
 
 def read_touchstone(path):
@@ -50,6 +53,8 @@ for path in sorted(sum((glob.glob(p) for p in a.files), [])):
     i = int(np.argmin(np.abs(f - a.f)))
     Sdb = 20 * np.log10(np.abs(S[i]) + 1e-12)
     n = S.shape[1]
+    NAMES = names_for(n)
+    nrx = {12: 8, 30: 20}.get(n, n)
     lines = [f"# S-матрица {os.path.relpath(path)} на {f[i]:.2f} ГГц, дБ", "",
              "| | " + " | ".join(NAMES[:n]) + " |", "|---|" + "---|" * n]
     for r in range(n):
@@ -61,15 +66,15 @@ for path in sorted(sum((glob.glob(p) for p in a.files), [])):
         j = int(np.argmin(d))
         lines.append(f"| {NAMES[r]} | {d[j]:.1f} | {f[j]:.3f} | {Sdb[r, r]:.1f} |")
     # развязка Tx–Rx: худшая по каждому Tx и в целом
-    if n == 12:
+    if n in (12, 30):
         worst = []
-        for t in range(8, 12):
-            c = int(np.argmax(Sdb[t, :8]))
+        for t in range(nrx, n):
+            c = int(np.argmax(Sdb[t, :nrx]))
             worst.append((NAMES[t], NAMES[c], Sdb[t, c]))
         lines += ["", "Худшая развязка каждого Tx с Rx (дБ): " +
                   "; ".join(f"{t}–{r} {v:.1f}" for t, r, v in worst)]
         wmax = max(v for _, _, v in worst)
-        rxrx = max(Sdb[r, c] for r in range(8) for c in range(8) if r != c)
+        rxrx = max(Sdb[r, c] for r in range(nrx) for c in range(nrx) if r != c)
         lines.append(f"Худшая развязка Tx–Rx: {wmax:.1f} дБ; худшая Rx–Rx: {rxrx:.1f} дБ")
         m = re.search(r"ytx(\d+(?:\.\d+)?)", path)
         summary.append((float(m.group(1)) if m else float("nan"), wmax, rxrx))

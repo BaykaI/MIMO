@@ -217,12 +217,13 @@ say(f"    Ширина луча кольца по −3 дБ ≈ {bw:.1f}° (λ/2
 rng = np.random.default_rng(1)
 say("3в. То же с шумом (ОСШ на элемент 10 дБ, 200 реализаций, источник в φ_s = 37°):")
 phs = 37.0; x0 = cst_manifold(phs); sig = np.sqrt(np.mean(abs(x0) ** 2)) / 10 ** (10 / 20)
+noise_res = {}
 for key, A in zip(errs, (A_geo, A_cal, A_cstf)):
     e = []
     for _ in range(200):
         x = x0 + sig * (rng.standard_normal(len(x0)) + 1j * rng.standard_normal(len(x0))) / np.sqrt(2)
         e.append(((bearing(x, A, fine) - phs) + 180) % 360 - 180)
-    e = np.array(e); say(f"      {key:38s}: среднее (систематика) {e.mean():+6.3f}°, СКО {e.std():.3f}°")
+    e = np.array(e); say(f"      {key:38s}: среднее (систематика) {e.mean():+6.3f}°, СКО {e.std():.3f}°"); noise_res[key] = dict(bias=float(e.mean()), std=float(e.std()))
 
 # MIMO: виртуальная решётка Tx-кольцо × Rx-кольцо — разрешение двух источников (целей)
 tring = [n for n in tx if abs(pos[n][2] - pos[tx[0]][2]) < 1e-6]
@@ -248,7 +249,7 @@ def hpbw(p):
 
 p1 = np.abs(A_geo.conj().T @ cst_manifold(50.0)) ** 2; p2 = np.abs(A_mimo.conj().T @ mimo_x(50.0)) ** 2
 say(f"    ширина пика по −3 дБ для одного источника: кольцо Rx {hpbw(p1):.2f}°, MIMO {hpbw(p2):.2f}°")
-spectra = {}
+spectra = {}; res_tbl = []
 for dphi in (8.0, 6.0, 5.0, 4.0):
     x_rx = cst_manifold(50.0) + cst_manifold(50.0 + dphi); x_m = mimo_x(50.0) + mimo_x(50.0 + dphi)
     p_rx = np.abs(A_geo.conj().T @ x_rx) ** 2; p_m = np.abs(A_mimo.conj().T @ x_m) ** 2
@@ -263,7 +264,7 @@ for dphi in (8.0, 6.0, 5.0, 4.0):
         peaks = sorted(sorted(peaks, key=lambda i: -pp[i])[:2])
         return float(min(pp[peaks[0]], pp[peaks[1]]) - pp[peaks[0]:peaks[1] + 1].min())
 
-    spectra[dphi] = (p_rx, p_m)
+    spectra[dphi] = (p_rx, p_m); res_tbl.append(dict(dphi=dphi, dip_rx=float(resolved(p_rx)), dip_mimo=float(resolved(p_m))))
     say(f"      Δφ = {dphi:3.0f}°: провал между целями — только кольцо Rx: {resolved(p_rx):5.1f} дБ, MIMO (виртуальная решётка): {resolved(p_m):5.1f} дБ "
         f"{'→ кольцо не разрешает, MIMO разрешает' if resolved(p_rx) < 3 <= resolved(p_m) else ''}")
 say(f"    Вывод: виртуальная решётка MIMO, координаты которой считаются как r_tn + r_rk (что и проверено в шаге 2), даёт пик в "
@@ -289,5 +290,13 @@ ax[2].axvline(50, color="0.5", lw=0.6); ax[2].axvline(56, color="0.5", lw=0.6)
 ax[2].set_xlim(30, 75); ax[2].set_ylim(-25, 1); ax[2].grid(alpha=0.3); ax[2].legend(fontsize=7)
 ax[2].set_xlabel("азимут, °"); ax[2].set_ylabel("дБ"); ax[2].set_title("две цели в 50° и 56°: кольцо против MIMO", fontsize=9)
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "df_ring.png"), dpi=170)
-say(""); say(f"Рисунок: {os.path.join(OUT, 'df_ring.png')}; лог: {LOG.name}")
+res = dict(n_ring=len(ring), R_ring_mm=float(np.linalg.norm(pos[ring[0]][:2])), n_tring=len(tring), R_tring_mm=float(np.linalg.norm(pos[tring[0]][:2])),
+           grid=dict(n_rows=int(len(th)), n_theta=int(len(np.unique(th))), n_phi=int(len(np.unique(ph))), n_files=len(files), freqs=freqs, cols=cols),
+           dir_check_db=float(np.abs(chk).max()), S=dict(n=n_, nf=int(nf), s11_db=float(20*np.log10(abs(Sc[i_f,0,0]))), s_tx1rx1_db=float(20*np.log10(abs(Sc[i_f,len(rx),0])))) if sp else None,
+           vpc=dict(mean=float(devs.mean()), p95=float(np.percentile(devs,95)), max=float(devs.max()), n_over=int((devs > LAM/20).sum())),
+           ck=[[float(abs(ci)), float(np.degrees(np.angle(ci)))] for ci in c],
+           df=dict(bw_deg=float(bw), **{key: dict(rms=float(np.sqrt(np.mean(np.array(e)**2))), max=float(np.abs(np.array(e)).max())) for key, e in errs.items()}),
+           noise=noise_res, hpbw_rx=float(hpbw(p1)), hpbw_mimo=float(hpbw(p2)), resolution=res_tbl)
+json.dump(res, open(os.path.join(folder, "df_results.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+say(""); say(f"Рисунок: {os.path.join(OUT, 'df_ring.png')}; лог: {LOG.name}; числа: df_results.json")
 LOG.close()

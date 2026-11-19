@@ -6,3 +6,9 @@ cst/*/_ff_tmp.txt
 cst/*/mimo_*/
 cst/*/build.log
 cst/*/export.log
+# кольца ringz: проекты CST и большие массивы не храним, только результаты
+cst/ringz_*/ringz/
+cst/ringz_*/ringz.cst
+cst/ringz_*/*.npy
+cst/ring_R10/
+cst/ringz_*/*.s18p

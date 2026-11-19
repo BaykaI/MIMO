@@ -22,7 +22,7 @@ HEADER = ("Theta [deg.]  Phi [deg.]  Abs(Dir.)[dBi]  Abs(Theta)[dBi]  Phase(Thet
           "Abs(Phi)[dBi]  Phase(Phi)[deg.]" + chr(10) + "-" * 110 + chr(10))
 
 
-def export_all(prj, out_dir, freqs=(9.8, 10.0, 10.2), step=1.0, names=NAMES):
+def export_all(prj, out_dir, freqs=(9.8, 10.0, 10.2), step=1.0, names=NAMES, th_range=(0, 180)):
     m = prj.model3d
     tmp = os.path.join(out_dir, "_ff_tmp.txt")
     tmp_vba = tmp.replace("\\", "\\\\")
@@ -39,7 +39,7 @@ With FarfieldPlot
 .SetPlotMode "Directivity"
 .SetScaleLinear "False"
 .Origin "zero"
-For th = 0 To 180 Step {step:g}
+For th = {th_range[0]:g} To {th_range[1]:g} Step {step:g}
   For ph = 0 To 360 - {step:g} Step {step:g}
     .AddListEvaluationPoint th, ph, 0, "spherical", "frequency", "-1"
   Next ph

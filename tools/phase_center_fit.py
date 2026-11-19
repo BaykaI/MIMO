@@ -101,11 +101,12 @@ def initial_guess(th, ph, u, E, w, k):
 
 
 def fit_phase_center(theta_deg, phi_deg, E, k, sector_deg=30.0, center=(0.0, 0.0), fix_z=False,
-                     with_phase=False):
+                     with_phase=False, init=None):
     """МНК по фазе в секторе радиусом sector_deg вокруг center=(θc, φc).
 
     Начальное приближение — по развёрнутой вдоль θ фазе (initial_guess), затем
     итерационное уточнение линейным МНК по свёрнутому в (-π, π] остатку.
+    init — начальная точка (x, y, z); без неё начальное приближение по развёрнутой фазе (initial_guess).
     fix_z=True — искать только x, y (z = 0): в узком секторе вокруг нормали z не обусловлен
     (чувствительность ∝ 1 − cosθ), а для плоской решётки нужны именно x, y.
     Возвращает (xyz в метрах, rms остатка фазы в градусах); with_phase=True — ещё и φ0 в градусах
@@ -124,7 +125,9 @@ def fit_phase_center(theta_deg, phi_deg, E, k, sector_deg=30.0, center=(0.0, 0.0
     A = np.column_stack([k * u[m], np.ones(m.sum())])
     w = np.abs(E[m]) ** 2
     x = np.zeros(4)
-    x[:3] = initial_guess(th[m], ph[m], u[m], E[m], w, k)
+    x[:3] = initial_guess(th[m], ph[m], u[m], E[m], w, k) if init is None else np.asarray(init, float)
+    if init is not None:     # постоянная фаза для заданной начальной точки
+        x[3] = np.angle(np.sum(w * np.exp(1j * (phase - k * (u[m] @ x[:3])))))
     if fix_z:
         x[2] = 0.0
         A[:, 2] = 0.0

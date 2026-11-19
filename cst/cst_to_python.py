@@ -187,7 +187,7 @@ def cst_manifold(phi):
 
 
 def bearing(x, A, grid):
-    p = np.abs(A.conj().T @ x) ** 2
+    p = np.abs(A.conj().T @ x) ** 2 / np.sum(np.abs(A) ** 2, axis=0)   # нормировка на мощность модели
     i = int(np.argmax(p))
     if 0 < i < len(grid) - 1:      # параболическое уточнение максимума
         y0, y1, y2 = p[i - 1], p[i], p[i + 1]; d = 0.5 * (y0 - y2) / (y0 - 2 * y1 + y2 + 1e-30)

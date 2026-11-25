@@ -6,7 +6,8 @@
 Nrx = 12 приёмников на радиусе R = Nrx*d/(2*pi), Ntx = 6 передатчиков на радиусе 1,35*R, смещены на половину шага.
 Обзор: горизонт (theta = 90°), азимут 0-359°. Выгрузка ДН только в полосе theta 60-120° (углы места ±30°).
 
-  python build_ringz.py <d в λ> [линий/λ] [r_wire мм] [L_dip мм] [зазор мм] [суффикс]
+  python build_ringz.py <d в λ> [линий/λ] [r_wire мм] [L_dip мм] [зазор мм] [суффикс] [f1:f2:шаг ГГц]
+  широкая полоса, точечные: python build_ringz.py 0.5 10 0.1 1.5 0.3 _ptwb 5:15:0.5
   напр. python build_ringz.py 0.5 ; эталон с точечными источниками: python build_ringz.py 0.5 10 0.1 1.5 0.3 _pt
 Результаты: cst\ringz_d<d>\ (проект, ff_<порт>_<f>GHz.txt, .s18p, layout_mm.txt, build.log).
 Порты: 1-12 rx1…rx12, 13-18 tx1…tx6.
@@ -26,7 +27,9 @@ LAM = 30.0
 NRX, NTX = 12, 6
 R_RX = NRX * D_LAM * LAM / (2 * math.pi)
 R_TX = 1.35 * R_RX
-FREQS = tuple(round(8.5 + 0.25 * i, 2) for i in range(13))
+FSPEC = sys.argv[7] if len(sys.argv) > 7 else "8.5:11.5:0.25"     # частоты мониторов: начало:конец:шаг, ГГц
+_f1, _f2, _fs = map(float, FSPEC.split(":"))
+FREQS = tuple(round(_f1 + _fs * i, 3) for i in range(int(round((_f2 - _f1) / _fs)) + 1))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(ROOT, f"ringz_d{D_LAM:g}{TAG}"); os.makedirs(OUT, exist_ok=True)
 PRJ = os.path.join(OUT, "ringz.cst")
@@ -35,6 +38,7 @@ elems = [(f"rx{i+1}", R_RX * math.cos(2 * math.pi * i / NRX), R_RX * math.sin(2 
 elems += [(f"tx{j+1}", R_TX * math.cos(2 * math.pi * (j + 0.5) / NTX), R_TX * math.sin(2 * math.pi * (j + 0.5) / NTX), 0.0) for j in range(NTX)]
 with open(os.path.join(OUT, "layout_mm.txt"), "w", encoding="utf-8") as fh:
     fh.write("name x_mm y_mm z_mm\n" + "".join(f"{n} {x:.4f} {y:.4f} {z:.4f}\n" for n, x, y, z in elems))
+open(os.path.join(OUT, "freqs.txt"), "w").write(" ".join(f"{f:g}" for f in FREQS))
 print(f"d = {D_LAM}λ: R_rx = {R_RX:.2f} мм, R_tx = {R_TX:.2f} мм, шаг Rx по дуге {2*math.pi*R_RX/NRX:.2f} мм", flush=True)
 
 for f in os.listdir(OUT):
@@ -56,7 +60,7 @@ def h(name, vba):
 for name, val in (("l_dip", L_DIP), ("r_wire", R_WIRE), ("gap", GAP)):
     h(f"par {name}", f'StoreParameter("{name}", "{val}")')
 h("units", 'With Units\n.Geometry "mm"\n.Frequency "GHz"\n.Time "ns"\nEnd With')
-h("freq", 'Solver.FrequencyRange "8", "12"')
+h("freq", f'Solver.FrequencyRange "{FREQS[0] - 0.5:g}", "{FREQS[-1] + 0.5:g}"')
 h("background", 'With Background\n.Type "Normal"\n.Epsilon "1"\n.Mu "1"\n'
   '.XminSpace "15"\n.XmaxSpace "15"\n.YminSpace "15"\n.YmaxSpace "15"\n.ZminSpace "15"\n.ZmaxSpace "15"\nEnd With')
 h("boundary", 'With Boundary\n.Xmin "expanded open"\n.Xmax "expanded open"\n.Ymin "expanded open"\n'

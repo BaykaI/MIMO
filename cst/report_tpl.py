@@ -11,7 +11,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TPL = os.path.join(HERE, "tpl_dz.docx")      # копия Downloads\Отчёт_ДЗ_ФАР_ФВ_Фарадея_Ka.dot, сохранённая Word как .docx
 
 
-def open_template(tema):
+def open_template(tema, kurs=None):
     d = Document(TPL)
     body = d.element.body
     els = list(body)
@@ -22,6 +22,13 @@ def open_template(tema):
             for r in p.runs[1:]:
                 r.text = ""
             break
+    if kurs:                                   # строка «ПО КУРСУ …»: прогоны «ПО КУРСУ», « », название
+        for p in d.paragraphs:
+            if p.text.strip().startswith("ПО КУРСУ"):
+                p.runs[-1].text = kurs
+                for r in p.runs[2:-1]:
+                    r.text = ""
+                break
     # тело примера: всё после конца поля оглавления (fldChar end) до sectPr
     i_toc = next(i for i, e in enumerate(els) if "СОДЕРЖАНИЕ" in "".join(t.text or "" for t in e.iter(qn("w:t"))))
     depth, started, i_end = 0, False, None              # конец внешнего поля TOC (внутри есть поля PAGEREF)

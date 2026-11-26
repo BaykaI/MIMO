@@ -46,7 +46,7 @@ dl = lambda d: f"{d:.2g}".replace(".", ",") + "λ"
 img = lambda r, rel, src="cst": [x for x in r["image"] if abs(x["rel"] - rel) < 1e-6][0][src]
 f10 = lambda r: [v for v in r["vpc"] if abs(v["f"] - 10) < 1e-6][0]
 
-doc = open_template(TEMA)
+doc = open_template(TEMA, "ОСНОВЫ ТЕОРИИ И ТЕХНИКИ РАДИОСИСТЕМ И КОМПЛЕКСОВ РАДИОПРОТИВОДЕЙСТВИЯ")
 FIG = [0]; TAB = [0]; EQ = [0]
 
 

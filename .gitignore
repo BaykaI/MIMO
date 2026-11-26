@@ -12,3 +12,8 @@ cst/ringz_*/ringz.cst
 cst/ringz_*/*.npy
 cst/ring_R10/
 cst/ringz_*/*.s18p
+# конусы build_cone2: проекты CST и прерванные прогоны не храним
+cst/cone_*/cone/
+cst/cone_*/cone.cst
+cst/cone_*_failed*/
+cst/tpl_test.docx

@@ -1,0 +1,25 @@
+END cone_pt_d0.5 22:49 1 DONE
+START cone_pt_wb 22:49 попытка 1
+END cone_pt_wb rc=0 23:49 0 ошибок
+skip cone_pt_d0.5
+START cone_pt_d0.75 23:49 попытка 1
+END cone_pt_d0.75 rc=0 00:06 0 ошибок
+START cone_pt_d1 00:06 попытка 1
+END cone_pt_d1 rc=0 00:27 0 ошибок
+START cone_pt_d1.5 00:27 попытка 1
+END cone_pt_d1.5 rc=0 00:54 0 ошибок
+START cone_pt_d2 00:54 попытка 1
+END cone_pt_d2 rc=0 01:24 0 ошибок
+START cone_dip_wb 01:24 попытка 1
+END cone_dip_wb rc=0 03:36 0 ошибок
+START cone_dip_d0.5 03:36 попытка 1
+END cone_dip_d0.5 rc=0 04:09 0 ошибок
+START cone_dip_d0.75 04:09 попытка 1
+END cone_dip_d0.75 rc=0 04:37 0 ошибок
+START cone_dip_d1 04:37 попытка 1
+END cone_dip_d1 rc=0 05:06 0 ошибок
+START cone_dip_d1.5 05:06 попытка 1
+END cone_dip_d1.5 rc=0 05:46 0 ошибок
+START cone_dip_d2 05:46 попытка 1
+END cone_dip_d2 rc=0 07:05 0 ошибок
+QUEUE DONE 07:05

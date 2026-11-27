@@ -20,9 +20,7 @@
 body { background: var(--bg); color: var(--ink); font-family: var(--f-text); font-size: 15px; line-height: 1.5; }
 .wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 40px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-header h1 { font-family: var(--f-head); font-weight: 600; font-size: 1.7rem; letter-spacing: .01em; margin: 0; text-wrap: balance; }
-header p { color: var(--muted); margin: 4px 0 0; max-width: 72ch; }
-.grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; margin-top: 18px; align-items: start; }
+.grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; margin-top: 0; align-items: start; }
 @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
 .ctl { display: grid; gap: 18px; }
@@ -50,17 +48,9 @@ dl.m dd.bad { color: var(--warn); font-weight: 500; }
 .legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
 .legend i.dash { border-top-style: dashed; }
 .legend b { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
-.say { margin-top: 16px; }
-.say p { margin: 0 0 6px; max-width: 80ch; }
-.say p:last-child { margin-bottom: 0; }
-.foot { color: var(--muted); font-size: .82rem; margin-top: 14px; max-width: 90ch; }
 </style>
 
 <div class="wrap">
-  <header>
-    <h1>Конус MIMO: шаг и полоса</h1>
-    <p>Изображение точечной цели по методу Чапурского для конусной системы 4 колец (приёмники на 1-м и 3-м, передатчики на 2-м и 4-м). Цель далеко на горизонте в азимуте 0°. Меняйте шаг и полосу и смотрите, что происходит с лучом, боковыми лепестками и разрешением по дальности.</p>
-  </header>
 
   <div class="grid">
     <section class="panel ctl" aria-label="Параметры">
@@ -70,7 +60,7 @@ dl.m dd.bad { color: var(--warn); font-weight: 500; }
           <input type="radio" name="mode" id="m-scale" value="scale" checked><label for="m-scale">Масштаб конуса</label>
           <input type="radio" name="mode" id="m-fixed" value="fixed"><label for="m-fixed">Постоянный размер</label>
         </div>
-        <p class="hint" id="mode-hint"></p>
+        
       </div>
       <div class="row">
         <label for="d">Шаг приёмников по дуге, d/λ <output id="d-out"></output></label>
@@ -99,9 +89,6 @@ dl.m dd.bad { color: var(--warn); font-weight: 500; }
         <div class="legend"><span><i style="border-color:var(--cur)"></i>выбранная полоса</span><span><i class="dash" style="border-color:var(--warn)"></i>ширина c/(2B)</span></div></div>
     </section>
   </div>
-
-  <section class="panel say" aria-live="polite" id="say"></section>
-  <p class="foot">Расчёт по формуле Чапурского в дальней зоне: Ψ(u) = |Σ<sub>f</sub> Σ<sub>n,k</sub> exp[j2πf(r<sub>tn</sub> + r<sub>rk</sub>)·(u − u<sub>0</sub>)/c]|, частоты через 0,25 ГГц. Сумма по парам считается как произведение множителей передатчиков и приёмников. Излучатели точечные: для них полноволновый расчёт в CST совпал с этой формулой в пределах 0,2 дБ на всех рассчитанных шагах. УБЛ – наибольший уровень вне главного лепестка (до первых минимумов), ширина луча – по уровню минус 3 дБ.</p>
 </div>
 
 <script>
@@ -228,9 +215,6 @@ dl.m dd.bad { color: var(--warn); font-weight: 500; }
     $("d-out").textContent = fmt(d, 2) + "λ"; $("b-out").textContent = b + " %";
     const fs = freqs(b);
     $("b-hint").textContent = b === 0 ? "Одна частота 10 ГГц." : `${fs.length} частот от ${fmt(fs[0], 2)} до ${fmt(fs.at(-1), 2)} ГГц через 0,25 ГГц.`;
-    $("mode-hint").textContent = md === "scale"
-      ? "Весь конус растёт вместе с шагом, число излучателей 18 + 14. Меняется и апертура."
-      : "Размер конуса прежний (Ø 300 мм, высота 126 мм). Меняется число излучателей на кольцах.";
     clearTimeout(timer); timer = setTimeout(() => compute(d, b, md, fs), 30);
   }
   function compute(d, b, md, fs) {
@@ -262,15 +246,7 @@ dl.m dd.bad { color: var(--warn); font-weight: 500; }
       ["Оценка c/(2B), мм", b > 0 ? fmt(cb, 0) : "–"],
     ];
     $("metrics").innerHTML = rows.map(([k, v, bad]) => `<dt>${k}</dt><dd${bad ? ' class="bad"' : ""}>${v}</dd>`).join("");
-    // пояснение
-    const p = [];
-    p.push(md === "scale"
-      ? `Шаг ${fmt(d, 2)}λ получен масштабом всего конуса (×${fmt(geo.s, 2)}). Вместе с шагом меняется апертура, поэтому луч по азимуту ${fmt(mA.bw, 1)}°: чем больше конус, тем он уже.`
-      : `Размер конуса постоянный, на кольцах ${geo.rx.length} приёмников и ${geo.tx.length} передатчиков. Апертура та же, поэтому луч почти не меняется (${fmt(mA.bw, 1)}° по азимуту), а от шага зависит только разреженность решётки.`);
-    if (b > 0) p.push(`Полоса ${b} % даёт разрешение по дальности ${fmt(mR.bw, 0)} мм (оценка c/(2B) = ${fmt(cb, 0)} мм) и снижает боковые лепестки: по азимуту ${fmt(mA1.sll, 1)} → ${fmt(mA.sll, 1)} дБ, по углу места ${fmt(mE1.sll, 1)} → ${fmt(mE.sll, 1)} дБ по сравнению с одной частотой. Ложные максимумы разных частот лежат в разных местах и при сложении гасятся.`);
-    else p.push("На одной частоте разрешения по дальности нет: профиль по дальности ровный. Сдвиньте ползунок полосы, чтобы оно появилось.");
-    if (mE.sll > -13) p.push(`По углу места УБЛ ${fmt(mE.sll, 1)} дБ: кольца стоят по высоте через ${fmt(geo.ringStep / LAM, 2)}λ, и по этой координате решётка сильно разрежена.`);
-    $("say").innerHTML = p.map(t => `<p>${t}</p>`).join("");
+
   }
   ["d", "b", "ref"].forEach(id => $(id).addEventListener("input", update));
   document.querySelectorAll("input[name=mode]").forEach(e => e.addEventListener("change", update));

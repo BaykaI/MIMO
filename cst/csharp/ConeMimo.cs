@@ -116,6 +116,7 @@ class Plot : Panel
     public double X0, X1, Y0 = -40, Y1 = 0; public double[] XT, YT = { -40, -30, -20, -10, 0 };
     public double[] X; public List<Tuple<double[], Color, bool>> Series = new List<Tuple<double[], Color, bool>>();
     public List<Tuple<double, Color>> VLines = new List<Tuple<double, Color>>(); public string VLabel;
+    public List<Tuple<string, Color, bool>> Legend = new List<Tuple<string, Color, bool>>();   // подпись, цвет, пунктир
     public Plot() { DoubleBuffered = true; BackColor = Color.White; ResizeRedraw = true; }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -131,6 +132,18 @@ class Plot : Panel
         using (var fr = new Pen(Color.FromArgb(190, 198, 208)))
         {
             g.DrawString(Title, fTitle, Brushes.Black, 6, 4);
+            // легенда в строке заголовка, прижата вправо: образец линии и подпись
+            {
+                float x = Width - 8 * q, yl = 4 * q + g.MeasureString("Ag", fTitle).Height / 2;
+                for (int i = Legend.Count - 1; i >= 0; i--)
+                {
+                    var it = Legend[i]; var sz = g.MeasureString(it.Item1, f);
+                    x -= sz.Width; g.DrawString(it.Item1, f, Brushes.DimGray, x, yl - sz.Height / 2);
+                    x -= 24 * q;
+                    using (var lp = new Pen(it.Item2, it.Item3 ? 1.3f : 2f)) { if (it.Item3) lp.DashPattern = new float[] { 4, 3 }; g.DrawLine(lp, x, yl, x + 20 * q, yl); }
+                    x -= 14 * q;
+                }
+            }
             var sc = new StringFormat { Alignment = StringAlignment.Center };
             var sr = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
             foreach (double t in XT) { g.DrawLine(gridPen, PX(t), T, PX(t), T + ph); g.DrawString(Num(t), f, Brushes.DimGray, PX(t), T + ph + 3 * q, sc); }
@@ -234,7 +247,7 @@ class MainForm : Form
     readonly GeoView geo = new GeoView();
     readonly Plot pAz = new Plot { Title = "Сечение по азимуту", XLabel = "Азимут, град.", X0 = -180, X1 = 180, XT = new double[] { -180, -90, 0, 90, 180 } };
     readonly Plot pEl = new Plot { Title = "Сечение по углу места", XLabel = "Угол места, град.", X0 = -90, X1 = 90, XT = new double[] { -90, -45, 0, 45, 90 } };
-    readonly Plot pRg = new Plot { VLabel = "c/(2B)", Title = "Профиль по дальности", XLabel = "Дальность относительно цели, мм", X0 = -400, X1 = 400, XT = new double[] { -400, -200, 0, 200, 400 } };
+    readonly Plot pRg = new Plot { Title = "Профиль по дальности", XLabel = "Дальность относительно цели, мм", X0 = -400, X1 = 400, XT = new double[] { -400, -200, 0, 200, 400 } };
     readonly double[] AZ, EL, DR; readonly double[][] dAz, dEl;
     readonly Timer debounce = new Timer { Interval = 40 };
     static readonly Color CUR = Color.FromArgb(15, 107, 92), REF = Color.FromArgb(154, 166, 180), WARN = Color.FromArgb(180, 83, 9);
@@ -307,6 +320,13 @@ class MainForm : Form
         if (showRef) { pAz.Series.Add(Tuple.Create(Calc.Cut(g, one, dAz), REF, true)); pEl.Series.Add(Tuple.Create(Calc.Cut(g, one, dEl), REF, true)); }
         pAz.Series.Add(Tuple.Create(az, CUR, false)); pEl.Series.Add(Tuple.Create(el, CUR, false)); pRg.Series.Add(Tuple.Create(rg, CUR, false));
         if (b > 0) { pRg.VLines.Add(Tuple.Create(-cb / 2, WARN)); pRg.VLines.Add(Tuple.Create(cb / 2, WARN)); }
+        foreach (var pl in new[] { pAz, pEl })
+        {
+            pl.Legend.Clear(); pl.Legend.Add(Tuple.Create("выбранная полоса", CUR, false));
+            if (showRef) pl.Legend.Add(Tuple.Create("одна частота", REF, true));
+        }
+        pRg.Legend.Clear(); pRg.Legend.Add(Tuple.Create("выбранная полоса", CUR, false));
+        if (b > 0) pRg.Legend.Add(Tuple.Create("ширина c/(2B)", WARN, true));
         pAz.Invalidate(); pEl.Invalidate(); pRg.Invalidate();
 
         lv.BeginUpdate(); lv.Items.Clear();

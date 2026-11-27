@@ -193,13 +193,16 @@ dl.m dd.bad { color: var(--warn); font-weight: 500; }
       if (s.vline != null) { for (const v of s.vline) { g.beginPath(); g.moveTo(X(v), T); g.lineTo(X(v), T + ph); g.stroke(); } continue; }
       g.beginPath(); s.y.forEach((v, i) => { const px = X(x[i]), py = Y(v); i ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke();
     }
-    if (opt.l3) {                       // уровень −3 дБ: по нему ширина луча и разрешение по дальности
-      g.strokeStyle = css("--muted"); g.lineWidth = 1; g.setLineDash([4, 3]);
-      g.beginPath(); g.moveTo(L, Y(-3)); g.lineTo(L + pw, Y(-3)); g.stroke(); g.setLineDash([]);
-      g.font = "11px " + css("--f-text"); g.textAlign = "right"; g.fillStyle = css("--muted"); g.fillText(opt.l3, L + pw - 4, Y(-3) + 13);
+    if (opt.l3) {                       // уровень −3 дБ (по нему ширина луча и разрешение): тонкий пунктир цвета кривой
+      g.strokeStyle = css("--cur"); g.globalAlpha = 0.6; g.lineWidth = 1; g.setLineDash([5, 4]);
+      g.beginPath(); g.moveTo(L, Y(-3)); g.lineTo(L + pw, Y(-3)); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
     }
     if (opt.vlab) { g.fillStyle = css("--warn"); g.textAlign = "left"; g.fillText(opt.vlab[0], X(opt.vlab[1]) + 4, T + 12); }
     g.restore(); g.setLineDash([]);
+    if (opt.l3) {                       // подпись уровня на оси: засечка и «−3» в цвет пунктира
+      g.strokeStyle = css("--cur"); g.lineWidth = 1.5; g.beginPath(); g.moveTo(L - 4, Y(-3)); g.lineTo(L, Y(-3)); g.stroke();
+      g.font = "bold 11px " + css("--f-num"); g.fillStyle = css("--cur"); g.textAlign = "right"; g.fillText("−3", L - 6, Y(-3) + 4);
+    }
   }
   function drawGeo(cv, geo) {
     const [g, W, H] = prep(cv);
@@ -244,10 +247,10 @@ dl.m dd.bad { color: var(--warn); font-weight: 500; }
     const cb = b > 0 ? C / (2 * 10 * b / 100) : NaN;
     drawGeo($("c-geo"), geo);
     const ser = (y, y1) => [y1 ? { y: y1, color: "--ref", dash: true, w: 1.2 } : null, { y, color: "--cur" }].filter(Boolean);
-    chart($("c-az"), AZ, ser(az, az1), { x: [-180, 180], y: [-40, 0], xt: [-180, -90, 0, 90, 180], yt: [-40, -30, -20, -10, 0], xl: "Азимут, град.", yl: "Ψ, дБ", l3: "−3 дБ: по нему ширина луча" });
-    chart($("c-el"), EL, ser(el, el1), { x: [-90, 90], y: [-40, 0], xt: [-90, -45, 0, 45, 90], yt: [-40, -30, -20, -10, 0], xl: "Угол места, град.", yl: "Ψ, дБ", l3: "−3 дБ: по нему ширина луча" });
+    chart($("c-az"), AZ, ser(az, az1), { x: [-180, 180], y: [-40, 0], xt: [-180, -90, 0, 90, 180], yt: [-40, -30, -20, -10, 0], xl: "Азимут, град.", yl: "Ψ, дБ", l3: true });
+    chart($("c-el"), EL, ser(el, el1), { x: [-90, 90], y: [-40, 0], xt: [-90, -45, 0, 45, 90], yt: [-40, -30, -20, -10, 0], xl: "Угол места, град.", yl: "Ψ, дБ", l3: true });
     const rser = [{ y: rg, color: "--cur" }]; if (b > 0) rser.push({ vline: [-cb / 2, cb / 2], color: "--warn", dash: true, w: 1.2 });
-    chart($("c-rng"), DR, rser, { x: [-400, 400], y: [-40, 0], xt: [-400, -200, 0, 200, 400], yt: [-40, -30, -20, -10, 0], xl: "Дальность относительно цели, мм", yl: "Ψ, дБ", l3: "−3 дБ: по нему разрешение", vlab: b > 0 ? ["c/(2B)", cb / 2] : null });
+    chart($("c-rng"), DR, rser, { x: [-400, 400], y: [-40, 0], xt: [-400, -200, 0, 200, 400], yt: [-40, -30, -20, -10, 0], xl: "Дальность относительно цели, мм", yl: "Ψ, дБ", l3: true, vlab: b > 0 ? ["c/(2B)", cb / 2] : null });
     document.querySelectorAll(".refl").forEach(e => e.hidden = !ref);
     const nP = geo.rx.length * geo.tx.length;
     const rows = [

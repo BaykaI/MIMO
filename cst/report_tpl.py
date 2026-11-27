@@ -29,6 +29,15 @@ def open_template(tema, kurs=None):
                 for r in p.runs[2:-1]:
                     r.text = ""
                 break
+    # исполнители и проверяющий этой работы (в примере О.Е. Смирнов и ассистент Г.Ю. Кочевой)
+    for p in d.paragraphs:
+        for r in p.runs:
+            if "О.Е. Смирнов" in r.text:
+                r.text = r.text.replace("О.Е. Смирнов", "В.А. Шишкин ")
+            if "Г.Ю. Кочевой" in r.text:
+                r.text = r.text.replace("Г.Ю. Кочевой", "А.Н. Савельев")
+            if r.text.startswith("ассистент кафедры"):
+                r.text = r.text.replace("ассистент кафедры", "профессор кафедры")
     # тело примера: всё после конца поля оглавления (fldChar end) до sectPr
     i_toc = next(i for i, e in enumerate(els) if "СОДЕРЖАНИЕ" in "".join(t.text or "" for t in e.iter(qn("w:t"))))
     depth, started, i_end = 0, False, None              # конец внешнего поля TOC (внутри есть поля PAGEREF)

@@ -163,7 +163,12 @@ class GeoView : Panel
         using (var fTitle = new Font("Segoe UI", 9.5f, FontStyle.Bold)) g.DrawString("Расстановка, вид сверху", fTitle, Brushes.Black, 6, 4);
         if (G == null) return;
         double Rm = 0; foreach (var p in G.Rx.Concat(G.Tx)) Rm = Math.Max(Rm, Math.Sqrt(p[0] * p[0] + p[1] * p[1]));
-        float cx = Width / 2f, cy = (Height + 20) / 2f, sc = (float)((Math.Min(Width, Height - 40) / 2.0 - 12) / Rm);
+        // постоянный масштаб в миллиметрах: рамка рассчитана на самый большой конус (нижнее кольцо 150 мм),
+        // поэтому при малом шаге в режиме масштаба конус на картинке действительно маленький
+        const double RMAX = 5.0 * Calc.LAM;
+        float q0 = e.Graphics.DpiX / 96f;
+        float cx = Width / 2f, cy = (Height + 20 * q0 - 24 * q0) / 2f + 6 * q0;
+        float sc = (float)((Math.Min(Width, Height - 60 * q0) / 2.0 - 10 * q0) / RMAX);
         using (var ring = new Pen(Color.FromArgb(228, 232, 237)))
             foreach (var r in Calc.RINGS) { float rr = (float)(r[0] * Calc.LAM * G.S * sc); g.DrawEllipse(ring, cx - rr, cy - rr, 2 * rr, 2 * rr); }
         using (var vb = new SolidBrush(Color.FromArgb(150, 160, 172)))
@@ -191,6 +196,15 @@ class GeoView : Panel
             }
         }
         using (var p = new Pen(Color.FromArgb(15, 107, 92), 1.5f)) g.DrawLine(p, cx + (float)(Rm * sc) + 4, cy, Width - 6, cy);
+        // масштабная линейка 50 мм в правом нижнем углу
+        using (var p = new Pen(Color.FromArgb(60, 70, 80), 1.5f))
+        using (var f = new Font("Segoe UI", 8.5f))
+        {
+            float L = (float)(50 * sc), x1 = Width - 10 * q0, x0 = x1 - L, y = Height - 12 * q0;
+            g.DrawLine(p, x0, y, x1, y); g.DrawLine(p, x0, y - 4 * q0, x0, y + 1); g.DrawLine(p, x1, y - 4 * q0, x1, y + 1);
+            var sz = g.MeasureString("50 мм", f);
+            g.DrawString("50 мм", f, Brushes.DimGray, x0 + (L - sz.Width) / 2, y - sz.Height - 2 * q0);
+        }
     }
 }
 
@@ -308,6 +322,13 @@ class MainForm : Form
         {
             form.Shown += (s, e) =>
             {
+                if (args.Length >= 5)                        // --shot файл scale|fixed d B%
+                {
+                    form.rbFixed.Checked = args[2] == "fixed";
+                    form.tbD.Value = (int)Math.Round(double.Parse(args[3], CultureInfo.InvariantCulture) * 100);
+                    form.tbB.Value = int.Parse(args[4]) / 5;
+                    form.UpdateLabels(); form.Compute();
+                }
                 Application.DoEvents();
                 using (var bmp = new Bitmap(form.Width, form.Height)) { form.DrawToBitmap(bmp, new Rectangle(0, 0, form.Width, form.Height)); bmp.Save(args[1]); }
                 form.Close();

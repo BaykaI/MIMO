@@ -198,7 +198,8 @@ dl.m dd.bad { color: var(--warn); font-weight: 500; }
   function drawGeo(cv, geo) {
     const [g, W, H] = prep(cv);
     const all = geo.rx.concat(geo.tx), Rm = Math.max(...all.map(p => Math.hypot(p[0], p[1])));
-    const sc = (Math.min(W, H) / 2 - 18) / Rm, cx = W / 2, cy = H / 2;
+    const RMAX = 5 * LAM;   // постоянный масштаб в мм: рамка под самый большой конус, малый конус выглядит малым
+    const sc = (Math.min(W, H) / 2 - 18) / RMAX, cx = W / 2, cy = H / 2;
     g.strokeStyle = css("--grid"); g.lineWidth = 1;
     for (const [R, , , ] of RINGS) { g.beginPath(); g.arc(cx, cy, R * LAM * geo.s * sc, 0, 2 * Math.PI); g.stroke(); }
     g.fillStyle = css("--virt");
@@ -211,6 +212,10 @@ dl.m dd.bad { color: var(--warn); font-weight: 500; }
     g.fillText("Ø нижнего кольца " + fmt(2 * geo.R1, 0) + " мм", 8, 14);
     g.strokeStyle = css("--cur"); g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx + Rm * sc * 0.6, cy); g.lineTo(W - 6, cy); g.stroke();
     g.fillStyle = css("--cur"); g.textAlign = "right"; g.fillText("на цель", W - 6, cy - 6);
+    const Lr = 50 * sc, x1 = W - 8, x0 = x1 - Lr, yb = H - 8;
+    g.strokeStyle = css("--muted"); g.lineWidth = 1.2; g.beginPath(); g.moveTo(x0, yb); g.lineTo(x1, yb);
+    g.moveTo(x0, yb - 4); g.lineTo(x0, yb); g.moveTo(x1, yb - 4); g.lineTo(x1, yb); g.stroke();
+    g.fillStyle = css("--muted"); g.textAlign = "center"; g.fillText("50 мм", (x0 + x1) / 2, yb - 6);
   }
 
   // ---------- обновление

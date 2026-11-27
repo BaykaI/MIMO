@@ -2,7 +2,7 @@
 // (4 кольца: приёмники на 1-м и 3-м, передатчики на 2-м и 4-м), цель далеко на горизонте в азимуте 0°.
 // Расчёт: Ψ(u) = |Σ_f AF_tx(f,u)·AF_rx(f,u)|, AF = Σ exp[jk r·(u − u0)], частоты через 0,25 ГГц вокруг 10 ГГц.
 // Сборка (.NET Framework 4, есть в любой Windows 10/11):
-//   C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:ConeMimo.exe ConeMimo.cs
+//   C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /codepage:65001 /target:winexe /optimize+ /win32icon:radar.ico /out:ConeMimo.exe ConeMimo.cs
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -230,6 +230,7 @@ class MainForm : Form
         Text = "Конус MIMO: шаг и полоса"; AutoScaleMode = AutoScaleMode.Dpi;
         float k = ScreenDpi() / 96f; Width = (int)(1280 * k); Height = (int)(800 * k); MinimumSize = new Size((int)(900 * k), (int)(600 * k));
         StartPosition = FormStartPosition.CenterScreen;
+        try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }   // значок радара из exe
         Font = new Font("Segoe UI", 9.5f); BackColor = Color.FromArgb(243, 245, 247);
         AZ = Enumerable.Range(0, 721).Select(i => -180 + 0.5 * i).ToArray();
         EL = Enumerable.Range(0, 361).Select(i => -90 + 0.5 * i).ToArray();

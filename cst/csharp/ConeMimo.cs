@@ -115,7 +115,7 @@ class Plot : Panel
     public string Title = "", XLabel = "", YLabel = "Ψ, дБ";
     public double X0, X1, Y0 = -40, Y1 = 0; public double[] XT, YT = { -40, -30, -20, -10, 0 };
     public double[] X; public List<Tuple<double[], Color, bool>> Series = new List<Tuple<double[], Color, bool>>();
-    public List<Tuple<double, Color>> VLines = new List<Tuple<double, Color>>();
+    public List<Tuple<double, Color>> VLines = new List<Tuple<double, Color>>(); public string VLabel, Label3 = "−3 дБ";
     public Plot() { DoubleBuffered = true; BackColor = Color.White; ResizeRedraw = true; }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -140,6 +140,18 @@ class Plot : Panel
             g.DrawRectangle(fr, L, T, pw, ph);
             g.SetClip(new RectangleF(L, T, pw, ph));
             foreach (var v in VLines) using (var p = new Pen(v.Item2, 1.2f) { DashStyle = DashStyle.Dash }) g.DrawLine(p, PX(v.Item1), T, PX(v.Item1), T + ph);
+            if (VLines.Count > 0 && VLabel != null)
+                using (var b = new SolidBrush(VLines[0].Item2))
+                    g.DrawString(VLabel, f, b, PX(VLines[VLines.Count - 1].Item1) + 3 * q, T + 2 * q);
+            // уровень минус 3 дБ: по нему считаются ширина луча и разрешение по дальности
+            using (var p = new Pen(Color.FromArgb(90, 100, 112), 1f) { DashStyle = DashStyle.Dash })
+            using (var lb = new SolidBrush(Color.FromArgb(90, 100, 112)))
+            {
+                float y3 = PY(-3); g.DrawLine(p, L, y3, L + pw, y3);
+                string t3 = Label3; var sz = g.MeasureString(t3, f);
+                g.FillRectangle(Brushes.White, L + pw - sz.Width - 4 * q, y3 + 2 * q, sz.Width, sz.Height - 2 * q);
+                g.DrawString(t3, f, lb, L + pw - sz.Width - 4 * q, y3 + 1 * q);
+            }
             foreach (var s in Series)
             {
                 if (s.Item1 == null || X == null) continue;
@@ -218,9 +230,9 @@ class MainForm : Form
     readonly CheckBox cbRef = new CheckBox { Text = "Показать одну частоту 10 ГГц", Checked = true, AutoSize = true };
     readonly ListView lv = new ListView { View = View.Details, HeaderStyle = ColumnHeaderStyle.None, FullRowSelect = true, GridLines = false };
     readonly GeoView geo = new GeoView();
-    readonly Plot pAz = new Plot { Title = "Сечение по азимуту", XLabel = "Азимут, град.", X0 = -180, X1 = 180, XT = new double[] { -180, -90, 0, 90, 180 } };
-    readonly Plot pEl = new Plot { Title = "Сечение по углу места", XLabel = "Угол места, град.", X0 = -90, X1 = 90, XT = new double[] { -90, -45, 0, 45, 90 } };
-    readonly Plot pRg = new Plot { Title = "Профиль по дальности", XLabel = "Дальность относительно цели, мм", X0 = -400, X1 = 400, XT = new double[] { -400, -200, 0, 200, 400 } };
+    readonly Plot pAz = new Plot { Label3 = "−3 дБ: по нему ширина луча", Title = "Сечение по азимуту", XLabel = "Азимут, град.", X0 = -180, X1 = 180, XT = new double[] { -180, -90, 0, 90, 180 } };
+    readonly Plot pEl = new Plot { Label3 = "−3 дБ: по нему ширина луча", Title = "Сечение по углу места", XLabel = "Угол места, град.", X0 = -90, X1 = 90, XT = new double[] { -90, -45, 0, 45, 90 } };
+    readonly Plot pRg = new Plot { Label3 = "−3 дБ: по нему разрешение", VLabel = "c/(2B)", Title = "Профиль по дальности", XLabel = "Дальность относительно цели, мм", X0 = -400, X1 = 400, XT = new double[] { -400, -200, 0, 200, 400 } };
     readonly double[] AZ, EL, DR; readonly double[][] dAz, dEl;
     readonly Timer debounce = new Timer { Interval = 40 };
     static readonly Color CUR = Color.FromArgb(15, 107, 92), REF = Color.FromArgb(154, 166, 180), WARN = Color.FromArgb(180, 83, 9);

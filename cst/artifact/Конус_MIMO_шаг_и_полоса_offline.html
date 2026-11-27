@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Автономная версия: без интернета, шрифты системные. Открыть двойным щелчком в любом браузере. -->
+<title>Конус MIMO: шаг и полоса</title>
+<style>
+*,*::before,*::after{box-sizing:border-box} body{margin:0} [hidden]{display:none!important} img{max-width:100%}
+/* Макет: пульт слева (ползунки и числа), справа четыре графика прибора; на телефоне всё в одну колонку */
+:root {
+  --bg: #f3f5f7; --panel: #ffffff; --ink: #17202b; --muted: #5b6878; --line: #d5dbe2; --grid: #e7ebef;
+  --rx: #1d5fa8; --tx: #c2410c; --virt: #8a96a5; --cur: #0f6b5c; --ref: #9aa6b4; --warn: #b45309;
+  --f-text: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --f-head: "IBM Plex Sans Condensed", "IBM Plex Sans", "Arial Narrow", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11161c; --panel: #18202a; --ink: #e5eaf0; --muted: #94a2b3; --line: #2b3645; --grid: #222c38;
+  --rx: #6ea8ec; --tx: #f08a4b; --virt: #5d6b7c; --cur: #4fd1b3; --ref: #5f6d7e; --warn: #f2b45a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11161c; --panel: #18202a; --ink: #e5eaf0; --muted: #94a2b3; --line: #2b3645; --grid: #222c38;
+  --rx: #6ea8ec; --tx: #f08a4b; --virt: #5d6b7c; --cur: #4fd1b3; --ref: #5f6d7e; --warn: #f2b45a; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-text); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header h1 { font-family: var(--f-head); font-weight: 600; font-size: 1.7rem; letter-spacing: .01em; margin: 0; text-wrap: balance; }
+header p { color: var(--muted); margin: 4px 0 0; max-width: 72ch; }
+.grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; margin-top: 18px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.ctl { display: grid; gap: 18px; }
+.ctl h2, .plots h2 { font-family: var(--f-head); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+.row label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 500; }
+.row output { font-family: var(--f-num); font-variant-numeric: tabular-nums; font-size: 1.05rem; color: var(--cur); }
+input[type=range] { width: 100%; accent-color: var(--cur); margin: 6px 0 0; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg input { position: absolute; opacity: 0; }
+.seg label { padding: 8px 6px; text-align: center; font-size: .88rem; cursor: pointer; color: var(--muted); }
+.seg input:checked + label { background: var(--cur); color: var(--panel); font-weight: 600; }
+.seg input:focus-visible + label { outline: 2px solid var(--cur); outline-offset: -2px; }
+.chk { display: flex; gap: 8px; align-items: center; font-size: .92rem; }
+.chk input { accent-color: var(--cur); width: 16px; height: 16px; }
+.hint { color: var(--muted); font-size: .82rem; margin: 4px 0 0; }
+dl.m { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; font-size: .9rem; }
+dl.m dt { color: var(--muted); }
+dl.m dd { margin: 0; font-family: var(--f-num); font-variant-numeric: tabular-nums; text-align: right; }
+dl.m dd.bad { color: var(--warn); font-weight: 500; }
+.plots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 1100px) { .plots { grid-template-columns: minmax(0, 1fr); } }
+.plot { min-width: 0; }
+.plot canvas { width: 100%; height: 250px; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8rem; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
+.legend i.dash { border-top-style: dashed; }
+.legend b { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
+.say { margin-top: 16px; }
+.say p { margin: 0 0 6px; max-width: 80ch; }
+.say p:last-child { margin-bottom: 0; }
+.foot { color: var(--muted); font-size: .82rem; margin-top: 14px; max-width: 90ch; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Конус MIMO: шаг и полоса</h1>
+    <p>Изображение точечной цели по методу Чапурского для конусной системы 4 колец (приёмники на 1-м и 3-м, передатчики на 2-м и 4-м). Цель далеко на горизонте в азимуте 0°. Меняйте шаг и полосу и смотрите, что происходит с лучом, боковыми лепестками и разрешением по дальности.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel ctl" aria-label="Параметры">
+      <div>
+        <h2>Как менять шаг</h2>
+        <div class="seg" role="radiogroup">
+          <input type="radio" name="mode" id="m-scale" value="scale" checked><label for="m-scale">Масштаб конуса</label>
+          <input type="radio" name="mode" id="m-fixed" value="fixed"><label for="m-fixed">Постоянный размер</label>
+        </div>
+        <p class="hint" id="mode-hint"></p>
+      </div>
+      <div class="row">
+        <label for="d">Шаг приёмников по дуге, d/λ <output id="d-out"></output></label>
+        <input type="range" id="d" min="0.5" max="3.14" step="0.01" value="1">
+      </div>
+      <div class="row">
+        <label for="b">Полоса сигнала, % от 10 ГГц <output id="b-out"></output></label>
+        <input type="range" id="b" min="0" max="60" step="5" value="20">
+        <p class="hint" id="b-hint"></p>
+      </div>
+      <label class="chk"><input type="checkbox" id="ref" checked> Показать для сравнения одну частоту 10 ГГц</label>
+      <div>
+        <h2>Что получилось</h2>
+        <dl class="m" id="metrics"></dl>
+      </div>
+    </section>
+
+    <section class="plots" aria-label="Графики">
+      <div class="panel plot"><h2>Расстановка, вид сверху</h2><canvas id="c-geo"></canvas>
+        <div class="legend"><span><b style="background:var(--rx)"></b>приёмники</span><span><b style="background:var(--tx)"></b>передатчики</span><span><b style="background:var(--virt)"></b>виртуальные центры (r<sub>t</sub> + r<sub>r</sub>) / 2</span></div></div>
+      <div class="panel plot"><h2>Сечение по азимуту</h2><canvas id="c-az"></canvas>
+        <div class="legend"><span><i style="border-color:var(--cur)"></i>выбранная полоса</span><span class="refl"><i class="dash" style="border-color:var(--ref)"></i>одна частота</span></div></div>
+      <div class="panel plot"><h2>Сечение по углу места</h2><canvas id="c-el"></canvas>
+        <div class="legend"><span><i style="border-color:var(--cur)"></i>выбранная полоса</span><span class="refl"><i class="dash" style="border-color:var(--ref)"></i>одна частота</span></div></div>
+      <div class="panel plot"><h2>Профиль по дальности</h2><canvas id="c-rng"></canvas>
+        <div class="legend"><span><i style="border-color:var(--cur)"></i>выбранная полоса</span><span><i class="dash" style="border-color:var(--warn)"></i>ширина c/(2B)</span></div></div>
+    </section>
+  </div>
+
+  <section class="panel say" aria-live="polite" id="say"></section>
+  <p class="foot">Расчёт по формуле Чапурского в дальней зоне: Ψ(u) = |Σ<sub>f</sub> Σ<sub>n,k</sub> exp[j2πf(r<sub>tn</sub> + r<sub>rk</sub>)·(u − u<sub>0</sub>)/c]|, частоты через 0,25 ГГц. Сумма по парам считается как произведение множителей передатчиков и приёмников. Излучатели точечные: для них полноволновый расчёт в CST совпал с этой формулой в пределах 0,2 дБ на всех рассчитанных шагах. УБЛ – наибольший уровень вне главного лепестка (до первых минимумов), ширина луча – по уровню минус 3 дБ.</p>
+</div>
+
+<script>
+(() => {
+  const C = 299.792458;              // мм·ГГц
+  const LAM = C / 10;                // λ на 10 ГГц, мм
+  const RINGS = [[5.0, 0.0, 10, "rx"], [4.17, 1.4, 8, "tx"], [3.33, 2.8, 8, "rx"], [2.5, 4.2, 6, "tx"]];  // R/λ, z/λ, n, вид
+  const D0 = 2 * Math.PI * 5.0 / 10; // шаг основного конуса, 3,14λ
+  const $ = id => document.getElementById(id);
+  const fmt = (v, nd = 1) => Number.isFinite(v) ? v.toFixed(nd).replace(".", ",").replace("-", "−") : "–";
+
+  function geometry(d, mode) {
+    const s = mode === "scale" ? d / D0 : 1;
+    const rx = [], tx = [];
+    for (const [R, z, n0, kind] of RINGS) {
+      const Rm = R * LAM * s, zm = z * LAM * s;
+      const n = mode === "scale" ? n0 : Math.max(3, Math.round(2 * Math.PI * Rm / (d * LAM)));
+      for (let i = 0; i < n; i++) {
+        const a = 2 * Math.PI * i / n + (kind === "tx" ? Math.PI / n : 0);
+        (kind === "tx" ? tx : rx).push([Rm * Math.cos(a), Rm * Math.sin(a), zm]);
+      }
+    }
+    return { rx, tx, s, R1: 5 * LAM * s, H: 4.2 * LAM * s, ringStep: Math.hypot(0.83, 1.4) * LAM * s };
+  }
+  function freqs(bPct) {
+    const half = 10 * bPct / 200, out = [];
+    const n = Math.round(2 * half / 0.25);
+    for (let i = 0; i <= n; i++) out.push(10 - half + 0.25 * i);
+    return out.length ? out : [10];
+  }
+  // множитель группы излучателей: Σ exp(jk r·(u − u0)), u0 = (1,0,0)
+  function af(pts, k, ux, uy, uz) {
+    let re = 0, im = 0;
+    for (const p of pts) { const ph = k * (p[0] * (ux - 1) + p[1] * uy + p[2] * uz); re += Math.cos(ph); im += Math.sin(ph); }
+    return [re, im];
+  }
+  function cut(g, fs, dirs) {
+    const out = new Float64Array(dirs.length);
+    for (let i = 0; i < dirs.length; i++) {
+      const [ux, uy, uz] = dirs[i]; let re = 0, im = 0;
+      for (const f of fs) {
+        const k = 2 * Math.PI * f / C;
+        const [a, b] = af(g.tx, k, ux, uy, uz), [c, d] = af(g.rx, k, ux, uy, uz);
+        re += a * c - b * d; im += a * d + b * c;
+      }
+      out[i] = Math.hypot(re, im);
+    }
+    const mx = Math.max(...out);
+    return Array.from(out, v => 20 * Math.log10(v / mx + 1e-12));
+  }
+  function lobe(x, d, circ) {
+    const n = d.length; let i = 0; for (let j = 1; j < n; j++) if (d[j] > d[i]) i = j;
+    const at = j => circ ? d[((j % n) + n) % n] : d[Math.min(Math.max(j, 0), n - 1)];
+    let lo = 0, hi = 0;
+    while (lo > -n / 2 && at(i + lo - 1) >= -3 && (circ || i + lo > 0)) lo--;
+    while (hi < n / 2 && at(i + hi + 1) >= -3 && (circ || i + hi < n - 1)) hi++;
+    let l = 0, r = 0;
+    while (l > -n / 2 && at(i + l - 1) < at(i + l) && (circ || i + l > 0)) l--;
+    while (r < n / 2 && at(i + r + 1) < at(i + r) && (circ || i + r < n - 1)) r++;
+    const main = new Set(); for (let j = l; j <= r; j++) main.add(((i + j) % n + n) % n);
+    let sll = -Infinity; for (let j = 0; j < n; j++) if (!main.has(j) && d[j] > sll) sll = d[j];
+    const flat = !circ && i + lo <= 0 && i + hi >= n - 1;
+    return { bw: flat ? NaN : (hi - lo) * (x[1] - x[0]), sll };
+  }
+  const AZ = Array.from({ length: 721 }, (_, i) => -180 + 0.5 * i);
+  const EL = Array.from({ length: 361 }, (_, i) => -90 + 0.5 * i);
+  const DR = Array.from({ length: 401 }, (_, i) => -400 + 2 * i);
+  const dirAz = AZ.map(a => [Math.cos(a * Math.PI / 180), Math.sin(a * Math.PI / 180), 0]);
+  const dirEl = EL.map(e => [Math.cos(e * Math.PI / 180), 0, Math.sin(e * Math.PI / 180)]);
+  function rangeProfile(fs) {
+    const out = DR.map(dr => { let re = 0, im = 0; for (const f of fs) { const ph = 4 * Math.PI * f / C * dr; re += Math.cos(ph); im += Math.sin(ph); } return Math.hypot(re, im); });
+    const mx = Math.max(...out); return out.map(v => 20 * Math.log10(v / mx + 1e-12));
+  }
+
+  // ---------- рисование
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function prep(cv) {
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
+    return [g, r.width, r.height];
+  }
+  function chart(cv, x, series, opt) {
+    const [g, W, H] = prep(cv), L = 44, R = 10, T = 8, B = 30, pw = W - L - R, ph = H - T - B;
+    const [x0, x1] = opt.x, [y0, y1] = opt.y;
+    const X = v => L + (v - x0) / (x1 - x0) * pw, Y = v => T + (y1 - Math.max(y0, Math.min(y1, v))) / (y1 - y0) * ph;
+    g.font = "11px " + css("--f-num"); g.fillStyle = css("--muted"); g.strokeStyle = css("--grid"); g.lineWidth = 1;
+    for (const t of opt.xt) { g.beginPath(); g.moveTo(X(t), T); g.lineTo(X(t), T + ph); g.stroke(); g.textAlign = "center"; g.fillText(String(t).replace("-", "−"), X(t), T + ph + 14); }
+    for (const t of opt.yt) { g.beginPath(); g.moveTo(L, Y(t)); g.lineTo(L + pw, Y(t)); g.stroke(); g.textAlign = "right"; g.fillText(String(t).replace("-", "−"), L - 6, Y(t) + 4); }
+    g.textAlign = "center"; g.font = "11px " + css("--f-text"); g.fillText(opt.xl, L + pw / 2, H - 3);
+    g.save(); g.translate(11, T + ph / 2); g.rotate(-Math.PI / 2); g.fillText(opt.yl, 0, 0); g.restore();
+    g.strokeStyle = css("--line"); g.strokeRect(L, T, pw, ph);
+    g.save(); g.beginPath(); g.rect(L, T, pw, ph); g.clip();
+    for (const s of series) {
+      g.strokeStyle = css(s.color); g.lineWidth = s.w || 1.6; g.setLineDash(s.dash ? [5, 4] : []);
+      if (s.vline != null) { for (const v of s.vline) { g.beginPath(); g.moveTo(X(v), T); g.lineTo(X(v), T + ph); g.stroke(); } continue; }
+      g.beginPath(); s.y.forEach((v, i) => { const px = X(x[i]), py = Y(v); i ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke();
+    }
+    g.restore(); g.setLineDash([]);
+  }
+  function drawGeo(cv, geo) {
+    const [g, W, H] = prep(cv);
+    const all = geo.rx.concat(geo.tx), Rm = Math.max(...all.map(p => Math.hypot(p[0], p[1])));
+    const sc = (Math.min(W, H) / 2 - 18) / Rm, cx = W / 2, cy = H / 2;
+    g.strokeStyle = css("--grid"); g.lineWidth = 1;
+    for (const [R, , , ] of RINGS) { g.beginPath(); g.arc(cx, cy, R * LAM * geo.s * sc, 0, 2 * Math.PI); g.stroke(); }
+    g.fillStyle = css("--virt");
+    const step = Math.max(1, Math.floor(geo.rx.length * geo.tx.length / 3000));
+    let c = 0;
+    for (const t of geo.tx) for (const r of geo.rx) { if (c++ % step) continue; g.fillRect(cx + (t[0] + r[0]) / 2 * sc - 0.8, cy - (t[1] + r[1]) / 2 * sc - 0.8, 1.6, 1.6); }
+    const dot = (p, col, rr) => { g.fillStyle = col; g.beginPath(); g.arc(cx + p[0] * sc, cy - p[1] * sc, rr, 0, 2 * Math.PI); g.fill(); };
+    geo.rx.forEach(p => dot(p, css("--rx"), 3)); geo.tx.forEach(p => dot(p, css("--tx"), 3));
+    g.fillStyle = css("--muted"); g.font = "11px " + css("--f-num"); g.textAlign = "left";
+    g.fillText("Ø нижнего кольца " + fmt(2 * geo.R1, 0) + " мм", 8, 14);
+    g.strokeStyle = css("--cur"); g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx + Rm * sc * 0.6, cy); g.lineTo(W - 6, cy); g.stroke();
+    g.fillStyle = css("--cur"); g.textAlign = "right"; g.fillText("на цель", W - 6, cy - 6);
+  }
+
+  // ---------- обновление
+  let timer = 0;
+  function mode() { return document.querySelector("input[name=mode]:checked").value; }
+  function update() {
+    const d = +$("d").value, b = +$("b").value, md = mode();
+    $("d-out").textContent = fmt(d, 2) + "λ"; $("b-out").textContent = b + " %";
+    const fs = freqs(b);
+    $("b-hint").textContent = b === 0 ? "Одна частота 10 ГГц." : `${fs.length} частот от ${fmt(fs[0], 2)} до ${fmt(fs.at(-1), 2)} ГГц через 0,25 ГГц.`;
+    $("mode-hint").textContent = md === "scale"
+      ? "Весь конус растёт вместе с шагом, число излучателей 18 + 14. Меняется и апертура."
+      : "Размер конуса прежний (Ø 300 мм, высота 126 мм). Меняется число излучателей на кольцах.";
+    clearTimeout(timer); timer = setTimeout(() => compute(d, b, md, fs), 30);
+  }
+  function compute(d, b, md, fs) {
+    const geo = geometry(d, md), one = [10];
+    const az = cut(geo, fs, dirAz), el = cut(geo, fs, dirEl), rg = rangeProfile(fs);
+    const ref = $("ref").checked && b > 0;
+    const az1 = ref ? cut(geo, one, dirAz) : null, el1 = ref ? cut(geo, one, dirEl) : null;
+    const mA = lobe(AZ, az, true), mE = lobe(EL, el, false), mR = lobe(DR, rg, false);
+    const mA1 = lobe(AZ, az1 || cut(geo, one, dirAz), true), mE1 = lobe(EL, el1 || cut(geo, one, dirEl), false);
+    const cb = b > 0 ? C / (2 * 10 * b / 100) : NaN;
+    drawGeo($("c-geo"), geo);
+    const ser = (y, y1) => [y1 ? { y: y1, color: "--ref", dash: true, w: 1.2 } : null, { y, color: "--cur" }].filter(Boolean);
+    chart($("c-az"), AZ, ser(az, az1), { x: [-180, 180], y: [-40, 0], xt: [-180, -90, 0, 90, 180], yt: [-40, -30, -20, -10, 0], xl: "Азимут, град.", yl: "Ψ, дБ" });
+    chart($("c-el"), EL, ser(el, el1), { x: [-90, 90], y: [-40, 0], xt: [-90, -45, 0, 45, 90], yt: [-40, -30, -20, -10, 0], xl: "Угол места, град.", yl: "Ψ, дБ" });
+    const rser = [{ y: rg, color: "--cur" }]; if (b > 0) rser.push({ vline: [-cb / 2, cb / 2], color: "--warn", dash: true, w: 1.2 });
+    chart($("c-rng"), DR, rser, { x: [-400, 400], y: [-40, 0], xt: [-400, -200, 0, 200, 400], yt: [-40, -30, -20, -10, 0], xl: "Дальность относительно цели, мм", yl: "Ψ, дБ" });
+    document.querySelectorAll(".refl").forEach(e => e.hidden = !ref);
+    const nP = geo.rx.length * geo.tx.length;
+    const rows = [
+      ["Приёмники + передатчики", `${geo.rx.length} + ${geo.tx.length}`],
+      ["Виртуальных центров", String(nP)],
+      ["Ø нижнего кольца, мм", fmt(2 * geo.R1, 0)],
+      ["Шаг между кольцами, λ", fmt(geo.ringStep / LAM, 2)],
+      ["Луч по азимуту, град.", fmt(mA.bw, 1)],
+      ["Луч по углу места, град.", fmt(mE.bw, 1)],
+      ["УБЛ по азимуту, дБ", fmt(mA.sll, 1), mA.sll > -13],
+      ["УБЛ по углу места, дБ", fmt(mE.sll, 1), mE.sll > -13],
+      ["Разрешение по дальности (−3 дБ), мм", b > 0 ? fmt(mR.bw, 0) : "нет"],
+      ["Оценка c/(2B), мм", b > 0 ? fmt(cb, 0) : "–"],
+    ];
+    $("metrics").innerHTML = rows.map(([k, v, bad]) => `<dt>${k}</dt><dd${bad ? ' class="bad"' : ""}>${v}</dd>`).join("");
+    // пояснение
+    const p = [];
+    p.push(md === "scale"
+      ? `Шаг ${fmt(d, 2)}λ получен масштабом всего конуса (×${fmt(geo.s, 2)}). Вместе с шагом меняется апертура, поэтому луч по азимуту ${fmt(mA.bw, 1)}°: чем больше конус, тем он уже.`
+      : `Размер конуса постоянный, на кольцах ${geo.rx.length} приёмников и ${geo.tx.length} передатчиков. Апертура та же, поэтому луч почти не меняется (${fmt(mA.bw, 1)}° по азимуту), а от шага зависит только разреженность решётки.`);
+    if (b > 0) p.push(`Полоса ${b} % даёт разрешение по дальности ${fmt(mR.bw, 0)} мм (оценка c/(2B) = ${fmt(cb, 0)} мм) и снижает боковые лепестки: по азимуту ${fmt(mA1.sll, 1)} → ${fmt(mA.sll, 1)} дБ, по углу места ${fmt(mE1.sll, 1)} → ${fmt(mE.sll, 1)} дБ по сравнению с одной частотой. Ложные максимумы разных частот лежат в разных местах и при сложении гасятся.`);
+    else p.push("На одной частоте разрешения по дальности нет: профиль по дальности ровный. Сдвиньте ползунок полосы, чтобы оно появилось.");
+    if (mE.sll > -13) p.push(`По углу места УБЛ ${fmt(mE.sll, 1)} дБ: кольца стоят по высоте через ${fmt(geo.ringStep / LAM, 2)}λ, и по этой координате решётка сильно разрежена.`);
+    $("say").innerHTML = p.map(t => `<p>${t}</p>`).join("");
+  }
+  ["d", "b", "ref"].forEach(id => $(id).addEventListener("input", update));
+  document.querySelectorAll("input[name=mode]").forEach(e => e.addEventListener("change", update));
+  window.addEventListener("resize", update);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", update);
+  new MutationObserver(update).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  update();
+})();
+</script>
+
+</body>
+</html>

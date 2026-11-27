@@ -43,16 +43,22 @@ for f in FREQS:
 thr, phr = np.radians(th), np.radians(ph)
 u = np.column_stack([np.sin(thr) * np.cos(phr), np.sin(thr) * np.sin(phr), np.cos(thr)])
 band = np.abs(th - 90) <= 30 + 1e-9
-d_rx = float(2 * np.pi * np.linalg.norm(pos["rx1"][:2]) / 10)          # шаг по дуге нижнего кольца (10 приёмников)
+n_ring1 = sum(1 for n_ in rx if abs(pos[n_][2]) < 1e-6)                # приёмники нижнего кольца (z = 0)
+d_rx = float(2 * np.pi * np.linalg.norm(pos["rx1"][:2]) / n_ring1)     # шаг по дуге нижнего кольца
+# при большом числе пар фазовые центры и задержки считаются по случайной выборке пар (не больше 400), изображение по всем
+rng = np.random.default_rng(1)
+SUB = np.arange(len(pairs)) if len(pairs) <= 400 else np.sort(rng.choice(len(pairs), 400, replace=False))
+SUB = np.union1d(SUB, [i for i, pr in enumerate(pairs) if pr in [("tx1", "rx1"), ("tx5", "rx6"), ("tx12", "rx15")]])
 res = dict(folder=os.path.basename(folder), freqs=FREQS, d_rx_mm=d_rx, d_rx_lam=d_rx / 29.979,
-           R1_mm=float(np.linalg.norm(pos["rx1"][:2])), H_mm=float(max(p[2] for p in pos.values())))
+           R1_mm=float(np.linalg.norm(pos["rx1"][:2])), H_mm=float(max(p[2] for p in pos.values())),
+           n_rx=len(rx), n_tx=len(tx), n_pairs_fit=int(len(SUB)))
 
 # ---- 1. виртуальные центры на каждой частоте
 EX = [("tx1", "rx1"), ("tx5", "rx6"), ("tx12", "rx15")]          # пары для показа координат
 res["vpc"] = []; ex_xyz = {f"{t}·{r}": [] for t, r in EX}
 for f in FREQS:
     k = kf(f); dev = []; rms = []
-    for (t, r), rv in zip(pairs, RV):
+    for (t, r), rv in ((pairs[i], RV[i]) for i in SUB):
         E = P[(t, f)] * P[(r, f)]
         xyz, e = fit_phase_center(th[band], ph[band], E[band], k, 180.0, (90.0, 0.0), init=rv)
         dev.append(np.linalg.norm(xyz - rv)); rms.append(e)
@@ -68,7 +74,7 @@ ut = u[band]
 
 def delay_fit(freqs):
     Fh = np.array(freqs) * 1e9; out = []
-    for (t, r), rv in zip(pairs, RV):
+    for (t, r), rv in ((pairs[i], RV[i]) for i in SUB):
         H = np.array([(P[(t, f)] * P[(r, f)])[band] * np.exp(-1j * kf(f) * (ut @ rv)) for f in freqs])
         ps = np.unwrap(np.angle(H), axis=0)
         slope = np.linalg.lstsq(np.column_stack([np.ones(len(Fh)), Fh]), ps, rcond=None)[0][1]

@@ -146,3 +146,33 @@ if SP:
         fig.subplots_adjust(hspace=0.75)
         G.save(fig, os.path.join(OUT, f"s_{nm}.png"), letters=True)
     print("шаг: ok", [round(r["d_rx_lam"], 2) for r in SP], [round(r["d_rx_lam"], 2) for r in SDP])
+
+# ---------- шаг при неизменном размере конуса (cone_fa_d*): меняется число излучателей
+FA = sorted([r for r in (load(os.path.basename(p_)) for p_ in glob.glob(os.path.join(HERE, "cone_fa_d*")) if "failed" not in p_) if r], key=lambda r: r["d_rx_lam"])
+if FA:
+    x = [r["d_rx_lam"] for r in FA]
+    fig, ax = G.figure(2, 1, h_mm=72)
+    for col, key in enumerate(("bw", "sll")):
+        a = ax[0, col]
+        cur = [(x, [img(r, 0.2, "formula")[f"az_{key}"] for r in FA]), (x, [img(r, 0.2, "formula")[f"el_{key}"] for r in FA]),
+               (x, [img(r, 0.2)[f"az_{key}"] for r in FA]), (x, [img(r, 0.2)[f"el_{key}"] for r in FA])]
+        ls = draw(a, cur, range(4))
+        if key == "bw":
+            a.set_ylim(0, 10)
+        a.set_xlabel("Шаг d/λ"); a.set_ylabel(("Ширина луча, град.", "УБЛ, дБ")[col]); G.comma(a); G.key(a, ls)
+        G.letter(a, ("а)", "б)")[col])
+    G.save(fig, os.path.join(OUT, "fa_beam.png"), letters=True)
+    LET = ["а)", "б)", "в)", "г)", "д)", "е)"]
+    nr_ = (len(FA[:6]) + 1) // 2
+    fig, ax = G.figure(2, nr_, h_mm=65 * nr_)
+    for n_, r in enumerate(FA[:6]):
+        a = ax[n_ // 2, n_ % 2]; c = r["cuts"]; xx = c["az"]
+        ls = draw(a, [(xx, db(c["b20_formula_az"])), (xx, db(c["b20_cst_az"]))], (0, 1), marker=False)
+        a.set_xlim(-180, 180); a.set_xticks(range(-180, 181, 90)); a.set_ylim(-30, 1); a.set_xlabel("Азимут, град."); a.set_ylabel("Ψ, дБ"); G.comma(a)
+        if n_ == 0: G.key(a, ls)
+        G.letter(a, LET[n_] + " " + f"{r['d_rx_lam']:.2g}".replace(".", ",") + "λ, " + f"{r['n_rx']} + {r['n_tx']}", y=-0.42)
+    for n_ in range(len(FA[:6]), 2 * nr_):
+        ax[n_ // 2, n_ % 2].axis("off")
+    fig.subplots_adjust(hspace=0.75)
+    G.save(fig, os.path.join(OUT, "fa_az.png"), letters=True)
+    print("постоянный размер: ok", [round(v, 2) for v in x])
